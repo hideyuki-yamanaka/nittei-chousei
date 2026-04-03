@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { isSameDay, format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { nanoid } from "nanoid";
 import { supabase } from "@/lib/supabase";
 import { formatDateWithHour, formatDeadline, isDeadlinePassed } from "@/lib/date-utils";
 import { calculateScores, getBestDates } from "@/lib/scoring";
@@ -12,6 +13,7 @@ import { HOURS } from "@/lib/constants";
 import InlineTitle from "@/components/InlineTitle";
 import Calendar from "@/components/Calendar";
 import TimeSlotPicker from "@/components/TimeSlotPicker";
+import ConfirmModal from "@/components/ConfirmModal";
 import type { DateTimeSelection } from "@/components/TimeSlotPicker";
 import type { Event, CandidateDate, Respondent, Response, Availability } from "@/lib/types";
 
@@ -78,6 +80,7 @@ function ResultBar({ okCount, maybeCount, ngCount, total }: { okCount: number; m
 export default function EventDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const eventId = params.eventId as string;
 
   const [event, setEvent] = useState<Event | null>(null);
@@ -94,6 +97,9 @@ export default function EventDetailPage() {
   const [editSelectedHours, setEditSelectedHours] = useState<number[]>([]);
   const [editDeadline, setEditDeadline] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // 確認モーダル
+  const [modal, setModal] = useState<"delete" | "duplicate" | null>(null);
 
   const loadData = useCallback(async () => {
     const [eventRes, candidatesRes, respondentsRes, responsesRes] =
@@ -125,8 +131,17 @@ export default function EventDetailPage() {
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("my_respondents") || "{}");
     setMyRespondentId(stored[eventId] || null);
-    loadData();
-  }, [eventId, loadData]);
+    loadData().then(() => {
+      // ?edit=1 クエリパラメータがあれば自動で編集モードに入る
+      if (searchParams.get("edit") === "1") {
+        // startEditing は candidates state に依存するので少し遅延
+        setTimeout(() => {
+          const editBtn = document.querySelector("[data-action='start-edit']") as HTMLButtonElement;
+          editBtn?.click();
+        }, 100);
+      }
+    });
+  }, [eventId, loadData, searchParams]);
 
   // 編集モードに入るとき、現在のデータを編集用stateにセット
   function startEditing() {
@@ -312,12 +327,39 @@ export default function EventDetailPage() {
   }
 
   async function handleDelete() {
-    if (!confirm("このイベントをゴミ箱に移動しますか？")) return;
     await supabase
       .from("events")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", eventId);
     router.push("/");
+  }
+
+  async function handleDuplicate() {
+    const newId = nanoid(12);
+
+    await supabase.from("events").insert({
+      id: newId,
+      title: `${event!.title}（コピー）`,
+      deadline: null,
+    });
+
+    if (candidates.length > 0) {
+      const newCandidates = candidates.map((cd) => ({
+        event_id: newId,
+        date: cd.date,
+        start_hour: cd.start_hour,
+        sort_order: cd.sort_order,
+      }));
+      await supabase.from("candidate_dates").insert(newCandidates);
+    }
+
+    const stored = JSON.parse(
+      localStorage.getItem("my_created_events") || "[]"
+    );
+    stored.push(newId);
+    localStorage.setItem("my_created_events", JSON.stringify(stored));
+
+    router.push(`/events/${newId}`);
   }
 
   if (loading) {
@@ -383,12 +425,13 @@ export default function EventDetailPage() {
           <span className="shrink-0 text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
             作成済み
           </span>
-          <div className="shrink-0 ml-auto flex items-center gap-1">
+          <div className="shrink-0 ml-auto flex items-center gap-0.5">
             {!editing && (
               <button
                 type="button"
+                data-action="start-edit"
                 onClick={startEditing}
-                className="text-gray-300 hover:text-blue-500 transition p-1.5"
+                className="text-gray-500 hover:text-blue-600 transition p-1.5"
                 title="編集"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -397,10 +440,23 @@ export default function EventDetailPage() {
                 </svg>
               </button>
             )}
+            {!editing && (
+              <button
+                type="button"
+                onClick={() => setModal("duplicate")}
+                className="text-gray-500 hover:text-blue-600 transition p-1.5"
+                title="複製"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleDelete}
-              className="text-gray-300 hover:text-red-500 transition p-1.5"
+              onClick={() => setModal("delete")}
+              className="text-gray-500 hover:text-red-500 transition p-1.5"
               title="削除"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -767,6 +823,26 @@ export default function EventDetailPage() {
           )}
         </>
       )}
+
+      {/* 確認モーダル */}
+      <ConfirmModal
+        open={modal === "delete"}
+        title="イベントを削除"
+        message="このイベントをゴミ箱に移動しますか？あとから復元できます。"
+        confirmLabel="削除する"
+        confirmColor="red"
+        onConfirm={() => { setModal(null); handleDelete(); }}
+        onCancel={() => setModal(null)}
+      />
+      <ConfirmModal
+        open={modal === "duplicate"}
+        title="イベントを複製"
+        message="このイベントをコピーして新しいイベントを作成しますか？"
+        confirmLabel="複製する"
+        confirmColor="blue"
+        onConfirm={() => { setModal(null); handleDuplicate(); }}
+        onCancel={() => setModal(null)}
+      />
     </div>
   );
 }
