@@ -30,9 +30,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-gray-50">
         <header className="bg-white border-b border-gray-200 px-4 py-3">
           <div className="max-w-3xl mx-auto">
-            <h1 className="text-xl font-bold text-gray-900">
+            <a href="/" className="text-xl font-bold text-gray-900 hover:text-blue-600 transition">
               📅 日程調整ツール
-            </h1>
+            </a>
           </div>
         </header>
         <main className="flex-1 px-4 py-6">

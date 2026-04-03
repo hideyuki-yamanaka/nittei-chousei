@@ -39,7 +39,7 @@ export const AVAILABILITY_LABELS: Record<Availability, string> = {
 };
 
 export const AVAILABILITY_COLORS: Record<Availability, string> = {
-  2: "text-green-600 bg-green-50",
-  1: "text-yellow-600 bg-yellow-50",
-  0: "text-red-600 bg-red-50",
+  2: "text-green-600",
+  1: "text-yellow-600",
+  0: "text-red-500",
 };
