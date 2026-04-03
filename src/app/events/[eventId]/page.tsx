@@ -21,7 +21,7 @@ function AvailabilityIcon({ value }: { value: Availability }) {
   if (value === 2) {
     return (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="inline">
-        <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="2.5" />
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="3" />
       </svg>
     );
   }

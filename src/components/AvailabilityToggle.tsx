@@ -17,12 +17,9 @@ function CircleIcon({ filled }: { filled: boolean }) {
         cy="12"
         r="9"
         stroke="currentColor"
-        strokeWidth="2.5"
-        fill={filled ? "currentColor" : "none"}
+        strokeWidth={filled ? "3" : "2.5"}
+        fill="none"
       />
-      {filled && (
-        <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2" />
-      )}
     </svg>
   );
 }
