@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { isSameDay, format } from "date-fns";
+import { ja } from "date-fns/locale";
 import { nanoid } from "nanoid";
 import Calendar from "./Calendar";
 import TimeSlotPicker, { type DateTimeSelection } from "./TimeSlotPicker";
@@ -12,6 +13,7 @@ export default function EventForm() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [selections, setSelections] = useState<DateTimeSelection[]>([]);
+  const [activeDate, setActiveDate] = useState<Date | null>(null);
   const [deadline, setDeadline] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -22,9 +24,16 @@ export default function EventForm() {
     setSelections((prev) => {
       const exists = prev.find((s) => isSameDay(s.date, date));
       if (exists) {
-        return prev.filter((s) => !isSameDay(s.date, date));
+        // 選択解除
+        const next = prev.filter((s) => !isSameDay(s.date, date));
+        if (activeDate && isSameDay(activeDate, date)) {
+          setActiveDate(next.length > 0 ? next[next.length - 1].date : null);
+        }
+        return next;
       }
+      // 新規選択
       const newSel: DateTimeSelection = { date, hours: [], allDay: true };
+      setActiveDate(date);
       return [...prev, newSel].sort(
         (a, b) => a.date.getTime() - b.date.getTime()
       );
@@ -52,10 +61,6 @@ export default function EventForm() {
     );
   }
 
-  function handleRemoveDate(date: Date) {
-    setSelections((prev) => prev.filter((s) => !isSameDay(s.date, date)));
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -69,7 +74,6 @@ export default function EventForm() {
       return;
     }
 
-    // 時間指定モードで時間未選択のチェック
     const invalidDates = selections.filter(
       (s) => !s.allDay && s.hours.length === 0
     );
@@ -83,7 +87,6 @@ export default function EventForm() {
     try {
       const eventId = nanoid(12);
 
-      // イベント作成
       const { error: eventError } = await supabase.from("events").insert({
         id: eventId,
         title: title.trim(),
@@ -91,7 +94,6 @@ export default function EventForm() {
       });
       if (eventError) throw eventError;
 
-      // 候補日時作成
       let sortOrder = 0;
       const candidateDates: {
         event_id: string;
@@ -150,15 +152,31 @@ export default function EventForm() {
         />
       </div>
 
-      {/* カレンダー */}
+      {/* カレンダー + 時間選択（横並び） */}
       <div>
         <label className="block text-sm font-bold text-gray-700 mb-2">
-          候補日をカレンダーから選択
+          候補日時を選択
         </label>
-        <Calendar
-          selectedDates={selectedDates}
-          onToggleDate={handleToggleDate}
-        />
+        <div className="flex gap-4 items-start">
+          {/* カレンダー */}
+          <div className="flex-1">
+            <Calendar
+              selectedDates={selectedDates}
+              onToggleDate={handleToggleDate}
+            />
+          </div>
+
+          {/* 時間スロット（Calendly風：右側に縦並び） */}
+          {activeDate && (
+            <TimeSlotPicker
+              activeDate={activeDate}
+              selections={selections}
+              onToggleHour={handleToggleHour}
+              onToggleAllDay={handleToggleAllDay}
+            />
+          )}
+        </div>
+
         {selections.length > 0 && (
           <p className="mt-2 text-sm text-blue-600">
             {selections.length}日選択中
@@ -166,13 +184,40 @@ export default function EventForm() {
         )}
       </div>
 
-      {/* 時間選択 */}
-      <TimeSlotPicker
-        selections={selections}
-        onToggleHour={handleToggleHour}
-        onToggleAllDay={handleToggleAllDay}
-        onRemoveDate={handleRemoveDate}
-      />
+      {/* 選択済み候補日時のサマリー */}
+      {selections.length > 0 && (
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
+          <h3 className="text-sm font-bold text-gray-700 mb-2">
+            選択した候補日時
+          </h3>
+          <div className="space-y-1">
+            {selections.map((sel) => (
+              <div
+                key={sel.date.toISOString()}
+                className="flex items-center justify-between text-sm"
+              >
+                <div className="text-gray-900">
+                  <span className="font-medium">
+                    {format(sel.date, "M/d（E）", { locale: ja })}
+                  </span>
+                  <span className="text-gray-500 ml-2">
+                    {sel.allDay
+                      ? "終日"
+                      : sel.hours.map((h) => `${h}:00`).join(", ")}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleDate(sel.date)}
+                  className="text-gray-400 hover:text-red-500 text-xs transition"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 回答期限 */}
       <div>
