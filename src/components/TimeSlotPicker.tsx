@@ -1,7 +1,5 @@
 "use client";
 
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { HOURS, HOUR_LABELS } from "@/lib/constants";
 
 export interface DateTimeSelection {
@@ -11,65 +9,61 @@ export interface DateTimeSelection {
 }
 
 interface TimeSlotPickerProps {
-  activeDate: Date | null;
-  selections: DateTimeSelection[];
-  onToggleHour: (date: Date, hour: number) => void;
-  onToggleAllDay: (date: Date) => void;
+  selectedHours: number[];
+  onToggleHour: (hour: number) => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
 }
 
 export default function TimeSlotPicker({
-  activeDate,
-  selections,
+  selectedHours,
   onToggleHour,
-  onToggleAllDay,
+  onSelectAll,
+  onDeselectAll,
 }: TimeSlotPickerProps) {
-  if (!activeDate) return null;
-
-  const sel = selections.find(
-    (s) => s.date.toDateString() === activeDate.toDateString()
-  );
-  if (!sel) return null;
+  const allSelected = HOURS.length === selectedHours.length;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 min-w-[180px]">
-      <h3 className="font-bold text-gray-900 mb-3 text-sm">
-        {format(activeDate, "M月d日（E）", { locale: ja })}
-      </h3>
+    <div className="bg-white rounded-xl border border-gray-200 p-4 w-[180px] shrink-0">
+      <h3 className="font-bold text-gray-900 mb-3 text-sm">時間帯</h3>
 
-      <label className="flex items-center gap-2 mb-3 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={sel.allDay}
-          onChange={() => onToggleAllDay(activeDate)}
-          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-        />
-        <span className="text-sm text-gray-700">終日</span>
-      </label>
+      <button
+        type="button"
+        onClick={allSelected ? onDeselectAll : onSelectAll}
+        className={`
+          w-full px-3 py-2 rounded-lg text-sm font-bold transition border text-center mb-2
+          ${
+            allSelected
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+          }
+        `}
+      >
+        {allSelected ? "すべて解除" : "すべて選択"}
+      </button>
 
-      {!sel.allDay && (
-        <div className="flex flex-col gap-1.5 max-h-[400px] overflow-y-auto pr-1">
-          {HOURS.map((hour) => {
-            const selected = sel.hours.includes(hour);
-            return (
-              <button
-                key={hour}
-                type="button"
-                onClick={() => onToggleHour(activeDate, hour)}
-                className={`
-                  w-full px-3 py-2 rounded-lg text-sm font-medium transition border text-center
-                  ${
-                    selected
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-400 hover:text-blue-600"
-                  }
-                `}
-              >
-                {HOUR_LABELS[hour]}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <div className="flex flex-col gap-1 max-h-[420px] overflow-y-auto pr-1">
+        {HOURS.map((hour) => {
+          const selected = selectedHours.includes(hour);
+          return (
+            <button
+              key={hour}
+              type="button"
+              onClick={() => onToggleHour(hour)}
+              className={`
+                w-full px-3 py-2 rounded-lg text-sm font-medium transition border text-center
+                ${
+                  selected
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-blue-400 hover:text-blue-600"
+                }
+              `}
+            >
+              {HOUR_LABELS[hour]}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

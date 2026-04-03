@@ -8,12 +8,14 @@ import { nanoid } from "nanoid";
 import Calendar from "./Calendar";
 import TimeSlotPicker, { type DateTimeSelection } from "./TimeSlotPicker";
 import { supabase } from "@/lib/supabase";
+import { HOURS } from "@/lib/constants";
 
 export default function EventForm() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [selections, setSelections] = useState<DateTimeSelection[]>([]);
-  const [activeDate, setActiveDate] = useState<Date | null>(null);
+  // 右側の時間スロットで選択中の時間（カレンダーで日付を選ぶとこの時間帯が適用される）
+  const [selectedHours, setSelectedHours] = useState<number[]>([]);
   const [deadline, setDeadline] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -24,40 +26,50 @@ export default function EventForm() {
     setSelections((prev) => {
       const exists = prev.find((s) => isSameDay(s.date, date));
       if (exists) {
-        // 選択解除
-        const next = prev.filter((s) => !isSameDay(s.date, date));
-        if (activeDate && isSameDay(activeDate, date)) {
-          setActiveDate(next.length > 0 ? next[next.length - 1].date : null);
-        }
-        return next;
+        return prev.filter((s) => !isSameDay(s.date, date));
       }
-      // 新規選択
-      const newSel: DateTimeSelection = { date, hours: [], allDay: true };
-      setActiveDate(date);
+      // 新しい日付を追加。現在選択中の時間帯を適用
+      const allDay = selectedHours.length === 0;
+      const newSel: DateTimeSelection = {
+        date,
+        hours: [...selectedHours],
+        allDay,
+      };
       return [...prev, newSel].sort(
         (a, b) => a.date.getTime() - b.date.getTime()
       );
     });
   }
 
-  function handleToggleHour(date: Date, hour: number) {
-    setSelections((prev) =>
-      prev.map((s) => {
-        if (!isSameDay(s.date, date)) return s;
-        const hours = s.hours.includes(hour)
-          ? s.hours.filter((h) => h !== hour)
-          : [...s.hours, hour].sort((a, b) => a - b);
-        return { ...s, hours };
-      })
-    );
+  function handleToggleHour(hour: number) {
+    setSelectedHours((prev) => {
+      const next = prev.includes(hour)
+        ? prev.filter((h) => h !== hour)
+        : [...prev, hour].sort((a, b) => a - b);
+      // 既に選択済みの日付にも反映
+      updateAllSelections(next);
+      return next;
+    });
   }
 
-  function handleToggleAllDay(date: Date) {
+  function handleSelectAll() {
+    const allHours = [...HOURS] as number[];
+    setSelectedHours(allHours);
+    updateAllSelections(allHours);
+  }
+
+  function handleDeselectAll() {
+    setSelectedHours([]);
+    updateAllSelections([]);
+  }
+
+  function updateAllSelections(hours: number[]) {
     setSelections((prev) =>
-      prev.map((s) => {
-        if (!isSameDay(s.date, date)) return s;
-        return { ...s, allDay: !s.allDay, hours: [] };
-      })
+      prev.map((s) => ({
+        ...s,
+        hours: [...hours],
+        allDay: hours.length === 0,
+      }))
     );
   }
 
@@ -71,14 +83,6 @@ export default function EventForm() {
     }
     if (selections.length === 0) {
       setError("候補日を1つ以上選択してください");
-      return;
-    }
-
-    const invalidDates = selections.filter(
-      (s) => !s.allDay && s.hours.length === 0
-    );
-    if (invalidDates.length > 0) {
-      setError("時間を選択するか、「終日」にチェックしてください");
       return;
     }
 
@@ -104,7 +108,7 @@ export default function EventForm() {
 
       for (const sel of selections) {
         const dateStr = format(sel.date, "yyyy-MM-dd");
-        if (sel.allDay) {
+        if (sel.allDay || sel.hours.length === 0) {
           candidateDates.push({
             event_id: eventId,
             date: dateStr,
@@ -152,11 +156,14 @@ export default function EventForm() {
         />
       </div>
 
-      {/* カレンダー + 時間選択（横並び） */}
+      {/* カレンダー + 時間選択（固定カラム横並び） */}
       <div>
         <label className="block text-sm font-bold text-gray-700 mb-2">
           候補日時を選択
         </label>
+        <p className="text-xs text-gray-500 mb-3">
+          右の時間帯を選んでから、カレンダーで日付をタップしてください
+        </p>
         <div className="flex gap-4 items-start">
           {/* カレンダー */}
           <div className="flex-1">
@@ -166,15 +173,13 @@ export default function EventForm() {
             />
           </div>
 
-          {/* 時間スロット（Calendly風：右側に縦並び） */}
-          {activeDate && (
-            <TimeSlotPicker
-              activeDate={activeDate}
-              selections={selections}
-              onToggleHour={handleToggleHour}
-              onToggleAllDay={handleToggleAllDay}
-            />
-          )}
+          {/* 時間スロット（常に表示） */}
+          <TimeSlotPicker
+            selectedHours={selectedHours}
+            onToggleHour={handleToggleHour}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+          />
         </div>
 
         {selections.length > 0 && (
@@ -201,7 +206,7 @@ export default function EventForm() {
                     {format(sel.date, "M/d（E）", { locale: ja })}
                   </span>
                   <span className="text-gray-500 ml-2">
-                    {sel.allDay
+                    {sel.allDay || sel.hours.length === 0
                       ? "終日"
                       : sel.hours.map((h) => `${h}:00`).join(", ")}
                   </span>
