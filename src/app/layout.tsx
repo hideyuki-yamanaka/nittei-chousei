@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "日程調整くん",
+  title: "日程調整ツール",
   description: "かんたん日程調整アプリ。カレンダーから候補日を選んで、リンクを共有するだけ。",
 };
 
@@ -31,7 +31,7 @@ export default function RootLayout({
         <header className="bg-white border-b border-gray-200 px-4 py-3">
           <div className="max-w-3xl mx-auto">
             <h1 className="text-xl font-bold text-gray-900">
-              📅 日程調整くん
+              📅 日程調整ツール
             </h1>
           </div>
         </header>
