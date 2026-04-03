@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { formatDeadline } from "@/lib/date-utils";
 import { nanoid } from "nanoid";
 import { useRouter } from "next/navigation";
+import InlineTitle from "./InlineTitle";
 import type { Event } from "@/lib/types";
 
 type Tab = "active" | "trash";
@@ -274,6 +275,13 @@ export default function EventList() {
               onRestore={() => handleRestore(event.id)}
               onDuplicate={() => handleDuplicate(event)}
               onPermanentDelete={() => handlePermanentDelete(event.id)}
+              onTitleUpdate={(newTitle) => {
+                setEvents((prev) =>
+                  prev.map((e) =>
+                    e.id === event.id ? { ...e, title: newTitle } : e
+                  )
+                );
+              }}
             />
           ))}
         </div>
@@ -292,6 +300,7 @@ function EventCard({
   onRestore,
   onDuplicate,
   onPermanentDelete,
+  onTitleUpdate,
 }: {
   event: EventWithCount;
   respondentCount: number;
@@ -301,6 +310,7 @@ function EventCard({
   onRestore?: () => void;
   onDuplicate?: () => void;
   onPermanentDelete?: () => void;
+  onTitleUpdate?: (newTitle: string) => void;
 }) {
   const createdDate = new Date(event.created_at).toLocaleDateString("ja-JP", {
     month: "short",
@@ -317,12 +327,11 @@ function EventCard({
               {event.title}
             </span>
           ) : (
-            <a
-              href={`/events/${event.id}`}
-              className="text-base font-bold text-gray-900 hover:text-blue-600 transition block truncate"
-            >
-              {event.title}
-            </a>
+            <InlineTitle
+              eventId={event.id}
+              title={event.title}
+              onUpdate={onTitleUpdate}
+            />
           )}
         </div>
       </div>

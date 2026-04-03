@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { formatDateWithHour, formatDeadline } from "@/lib/date-utils";
+import InlineTitle from "@/components/InlineTitle";
 import type { Event, CandidateDate, Respondent } from "@/lib/types";
 
 export default function EventDetailPage() {
@@ -67,6 +68,14 @@ export default function EventDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* ナビ */}
+      <a
+        href="/"
+        className="text-gray-400 hover:text-gray-600 transition text-sm"
+      >
+        &larr; 一覧に戻る
+      </a>
+
       {/* 作成完了メッセージ */}
       <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
         <p className="text-green-800 font-bold">イベントを作成しました！</p>
@@ -77,11 +86,18 @@ export default function EventDetailPage() {
 
       {/* イベント情報 */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h2 className="text-xl font-bold text-gray-900 mb-3">{event.title}</h2>
+        <InlineTitle
+          eventId={eventId}
+          title={event.title}
+          onUpdate={(newTitle) =>
+            setEvent((prev) => (prev ? { ...prev, title: newTitle } : prev))
+          }
+          className="text-xl font-bold text-gray-900 mb-3"
+        />
 
         {event.deadline && (
           <p className="text-sm text-gray-600 mb-3">
-            ⏰ 回答期限: {formatDeadline(event.deadline)}
+            回答期限: {formatDeadline(event.deadline)}
           </p>
         )}
 
@@ -90,7 +106,7 @@ export default function EventDetailPage() {
           <ul className="space-y-1">
             {candidates.map((cd) => (
               <li key={cd.id} className="text-sm text-gray-600">
-                • {formatDateWithHour(cd.date, cd.start_hour)}
+                {formatDateWithHour(cd.date, cd.start_hour)}
               </li>
             ))}
           </ul>
