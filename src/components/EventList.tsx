@@ -384,7 +384,7 @@ function EventCard({
 
       {/* 管理アクション: 編集・複製・削除 */}
       {!isSample && (
-        <div className="border-t border-gray-100 bg-gray-50 px-4 py-2 flex items-center justify-between">
+        <div className="border-t border-gray-100 bg-gray-50 px-4 py-2 flex items-center justify-between" onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}>
           {!isTrash ? (
             <>
               <a

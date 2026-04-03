@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { isSameDay, format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
@@ -77,6 +77,7 @@ function ResultBar({ okCount, maybeCount, ngCount, total }: { okCount: number; m
 
 export default function EventDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const eventId = params.eventId as string;
 
   const [event, setEvent] = useState<Event | null>(null);
@@ -310,6 +311,15 @@ export default function EventDetailPage() {
     await loadData();
   }
 
+  async function handleDelete() {
+    if (!confirm("このイベントをゴミ箱に移動しますか？")) return;
+    await supabase
+      .from("events")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", eventId);
+    router.push("/");
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -373,6 +383,17 @@ export default function EventDetailPage() {
           <span className="shrink-0 text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
             作成済み
           </span>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="shrink-0 ml-auto text-gray-300 hover:text-red-500 transition p-1"
+            title="削除"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+          </button>
         </div>
 
         <div className="flex items-center gap-3 text-sm text-gray-500">
