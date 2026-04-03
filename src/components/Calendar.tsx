@@ -24,7 +24,7 @@ interface CalendarProps {
   onRangeDates: (dates: Date[]) => void;
 }
 
-const WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"];
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
 export default function Calendar({
   selectedDates,
@@ -41,8 +41,8 @@ export default function Calendar({
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
 
   const days: Date[] = [];
   let day = calendarStart;
@@ -168,10 +168,10 @@ export default function Calendar({
           <div
             key={wd}
             className={`text-center text-xs font-medium py-1 ${
-              i === 5
-                ? "text-blue-500"
-                : i === 6
+              i === 0
                 ? "text-red-500"
+                : i === 6
+                ? "text-blue-500"
                 : "text-gray-500"
             }`}
           >
