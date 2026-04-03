@@ -323,7 +323,7 @@ function EventCard({
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
       {/* 情報エリア: 結果・ステータス */}
       <a
-        href={isSample ? undefined : `/events/${event.id}/results`}
+        href={isSample ? undefined : `/events/${event.id}`}
         className={`block p-4 ${isSample ? "" : "hover:bg-gray-50 transition"}`}
       >
         {/* タイトル行 */}
@@ -376,7 +376,7 @@ function EventCard({
           )}
           {!isSample && (
             <span className="text-xs text-blue-500 ml-auto">
-              結果を見る &rarr;
+              詳細 &rarr;
             </span>
           )}
         </div>
@@ -388,10 +388,10 @@ function EventCard({
           {!isTrash ? (
             <>
               <a
-                href={`/events/${event.id}`}
-                className="text-xs text-gray-500 hover:text-gray-700 transition"
+                href={`/events/${event.id}/results`}
+                className="text-xs text-blue-500 hover:text-blue-700 font-medium transition"
               >
-                共有リンク
+                結果を見る
               </a>
               <div className="relative">
                 <button
