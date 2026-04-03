@@ -312,92 +312,146 @@ function EventCard({
   onPermanentDelete?: () => void;
   onTitleUpdate?: (newTitle: string) => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const createdDate = new Date(event.created_at).toLocaleDateString("ja-JP", {
     month: "short",
     day: "numeric",
   });
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
-      {/* 上段: タイトル + メタ情報 */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0 flex-1">
-          {isSample ? (
-            <span className="text-base font-bold text-gray-900 block truncate">
-              {event.title}
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+      {/* 情報エリア: 結果・ステータス */}
+      <a
+        href={isSample ? undefined : `/events/${event.id}/results`}
+        className={`block p-4 ${isSample ? "" : "hover:bg-gray-50 transition"}`}
+      >
+        {/* タイトル行 */}
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="min-w-0 flex-1" onClick={(e) => !isSample && e.stopPropagation()}>
+            {isSample ? (
+              <span className="text-base font-bold text-gray-900 block truncate">
+                {event.title}
+              </span>
+            ) : (
+              <InlineTitle
+                eventId={event.id}
+                title={event.title}
+                onUpdate={onTitleUpdate}
+              />
+            )}
+          </div>
+          <span className="text-xs text-gray-400 shrink-0 mt-0.5">
+            {createdDate}
+          </span>
+        </div>
+
+        {/* 回答状況 */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <div className="flex -space-x-1">
+              {Array.from({ length: Math.min(respondentCount, 3) }).map(
+                (_, i) => (
+                  <div
+                    key={i}
+                    className="w-5 h-5 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center"
+                  >
+                    <span className="text-[8px] text-blue-600 font-bold">
+                      {String.fromCharCode(65 + i)}
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
+            <span className="text-xs font-medium text-gray-600">
+              {respondentCount > 0
+                ? `${respondentCount}人が回答`
+                : "未回答"}
             </span>
-          ) : (
-            <InlineTitle
-              eventId={event.id}
-              title={event.title}
-              onUpdate={onTitleUpdate}
-            />
+          </div>
+          {event.deadline && (
+            <span className="text-xs text-orange-600">
+              期限: {formatDeadline(event.deadline)}
+            </span>
+          )}
+          {!isSample && (
+            <span className="text-xs text-blue-500 ml-auto">
+              結果を見る &rarr;
+            </span>
           )}
         </div>
-      </div>
+      </a>
 
-      {/* 中段: ステータスバッジ */}
-      <div className="flex items-center gap-2 flex-wrap mb-3">
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-          作成: {createdDate}
-        </span>
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-          回答 {respondentCount}件
-        </span>
-        {event.deadline && (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700">
-            期限: {formatDeadline(event.deadline)}
-          </span>
-        )}
-      </div>
-
-      {/* 下段: アクションボタン */}
+      {/* 管理アクション: 編集・複製・削除 */}
       {!isSample && (
-        <div className="flex gap-2 border-t border-gray-100 pt-3">
+        <div className="border-t border-gray-100 bg-gray-50 px-4 py-2 flex items-center justify-between">
           {!isTrash ? (
             <>
               <a
                 href={`/events/${event.id}`}
-                className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                className="text-xs text-gray-500 hover:text-gray-700 transition"
               >
-                詳細
+                共有リンク
               </a>
-              <a
-                href={`/events/${event.id}/results`}
-                className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
-              >
-                結果
-              </a>
-              <button
-                type="button"
-                onClick={onDuplicate}
-                className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-              >
-                複製
-              </button>
-              <button
-                type="button"
-                onClick={onDelete}
-                className="px-3 py-1.5 text-xs font-bold text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition ml-auto"
-              >
-                削除
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="text-gray-400 hover:text-gray-600 transition p-1"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <circle cx="3" cy="8" r="1.5" />
+                    <circle cx="8" cy="8" r="1.5" />
+                    <circle cx="13" cy="8" r="1.5" />
+                  </svg>
+                </button>
+                {menuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[120px]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onDuplicate?.();
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
+                      >
+                        複製
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onDelete?.();
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition"
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </>
           ) : (
             <>
               <button
                 type="button"
                 onClick={onRestore}
-                className="px-3 py-1.5 text-xs font-bold text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition"
+                className="text-xs text-green-600 hover:text-green-700 font-medium transition"
               >
-                復元
+                復元する
               </button>
               <button
                 type="button"
                 onClick={onPermanentDelete}
-                className="px-3 py-1.5 text-xs font-bold text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition ml-auto"
+                className="text-xs text-red-400 hover:text-red-600 transition"
               >
-                完全削除
+                完全に削除
               </button>
             </>
           )}
