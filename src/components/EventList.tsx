@@ -388,7 +388,7 @@ function EventCard({
           {!isTrash ? (
             <>
               <a
-                href={`/events/${event.id}/results`}
+                href={`/events/${event.id}`}
                 className="text-xs text-blue-500 hover:text-blue-700 font-medium transition"
               >
                 結果を見る
