@@ -328,7 +328,7 @@ function EventCard({
       >
         {/* タイトル行 */}
         <div className="flex items-start justify-between gap-3 mb-2">
-          <div className="min-w-0 flex-1" onClick={(e) => !isSample && e.stopPropagation()}>
+          <div className="min-w-0 flex-1" onClick={(e) => { if (!isSample) { e.stopPropagation(); e.preventDefault(); } }}>
             {isSample ? (
               <span className="text-base font-bold text-gray-900 block truncate">
                 {event.title}
