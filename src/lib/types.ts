@@ -3,6 +3,7 @@ export interface Event {
   title: string;
   description: string;
   deadline: string | null;
+  deleted_at: string | null;
   created_at: string;
 }
 

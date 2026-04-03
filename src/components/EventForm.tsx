@@ -163,6 +163,13 @@ export default function EventForm() {
         .insert(candidateDates);
       if (datesError) throw datesError;
 
+      // localStorageに作成したイベントIDを保存
+      const stored = JSON.parse(
+        localStorage.getItem("my_created_events") || "[]"
+      );
+      stored.push(eventId);
+      localStorage.setItem("my_created_events", JSON.stringify(stored));
+
       router.push(`/events/${eventId}`);
     } catch (err) {
       console.error(err);
@@ -262,12 +269,40 @@ export default function EventForm() {
         <label className="block text-sm font-bold text-gray-700 mb-2">
           回答期限（任意）
         </label>
-        <input
-          type="datetime-local"
-          value={deadline}
-          onChange={(e) => setDeadline(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-        />
+        <div
+          className="relative w-full cursor-pointer"
+          onClick={() => {
+            const input = document.getElementById(
+              "deadline-input"
+            ) as HTMLInputElement;
+            input?.showPicker?.();
+            input?.focus();
+          }}
+        >
+          {!deadline && (
+            <div className="absolute inset-0 flex items-center px-4 text-gray-400 pointer-events-none">
+              タップして期限を設定
+            </div>
+          )}
+          <input
+            id="deadline-input"
+            type="datetime-local"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 ${
+              !deadline ? "text-transparent" : ""
+            }`}
+          />
+        </div>
+        {deadline && (
+          <button
+            type="button"
+            onClick={() => setDeadline("")}
+            className="mt-1 text-xs text-gray-400 hover:text-red-500 transition"
+          >
+            期限をクリア
+          </button>
+        )}
       </div>
 
       {/* エラー */}
