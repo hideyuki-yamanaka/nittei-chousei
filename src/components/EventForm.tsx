@@ -63,6 +63,15 @@ export default function EventForm() {
     updateAllSelections([]);
   }
 
+  function handleRangeSelect(startHour: number, endHour: number) {
+    const rangeHours: number[] = [];
+    for (let h = startHour; h <= endHour; h++) {
+      rangeHours.push(h);
+    }
+    setSelectedHours(rangeHours);
+    updateAllSelections(rangeHours);
+  }
+
   function updateAllSelections(hours: number[]) {
     setSelections((prev) =>
       prev.map((s) => ({
@@ -179,6 +188,7 @@ export default function EventForm() {
             onToggleHour={handleToggleHour}
             onSelectAll={handleSelectAll}
             onDeselectAll={handleDeselectAll}
+            onRangeSelect={handleRangeSelect}
           />
         </div>
 
