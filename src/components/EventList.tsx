@@ -312,19 +312,17 @@ function EventCard({
   onPermanentDelete?: () => void;
   onTitleUpdate?: (newTitle: string) => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   const createdDate = new Date(event.created_at).toLocaleDateString("ja-JP", {
     month: "short",
     day: "numeric",
   });
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-      {/* 情報エリア: 結果・ステータス */}
+    <div className="bg-white rounded-xl border border-gray-200 hover:shadow-md transition-shadow">
+      {/* 情報エリア: クリックで詳細ページへ */}
       <a
         href={isSample ? undefined : `/events/${event.id}`}
-        className={`block p-4 ${isSample ? "" : "hover:bg-gray-50 transition"}`}
+        className={`block p-4 ${isSample ? "" : "hover:bg-gray-50 transition"} rounded-t-xl`}
       >
         {/* タイトル行 */}
         <div className="flex items-start justify-between gap-3 mb-2">
@@ -382,9 +380,9 @@ function EventCard({
         </div>
       </a>
 
-      {/* 管理アクション: 編集・複製・削除 */}
+      {/* 管理アクション */}
       {!isSample && (
-        <div className="border-t border-gray-100 bg-gray-50 px-4 py-2 flex items-center justify-between" onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}>
+        <div className="border-t border-gray-100 bg-gray-50 px-4 py-2 flex items-center justify-between rounded-b-xl">
           {!isTrash ? (
             <>
               <a
@@ -393,48 +391,37 @@ function EventCard({
               >
                 結果を見る
               </a>
-              <div className="relative">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => setMenuOpen(!menuOpen)}
-                  className="text-gray-400 hover:text-gray-600 transition p-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onDuplicate?.();
+                  }}
+                  className="text-gray-400 hover:text-blue-500 transition p-1.5"
+                  title="複製"
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <circle cx="3" cy="8" r="1.5" />
-                    <circle cx="8" cy="8" r="1.5" />
-                    <circle cx="13" cy="8" r="1.5" />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                   </svg>
                 </button>
-                {menuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[120px]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          onDuplicate?.();
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-                      >
-                        複製
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          onDelete?.();
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition"
-                      >
-                        削除
-                      </button>
-                    </div>
-                  </>
-                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onDelete?.();
+                  }}
+                  className="text-gray-400 hover:text-red-500 transition p-1.5"
+                  title="削除"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </button>
               </div>
             </>
           ) : (

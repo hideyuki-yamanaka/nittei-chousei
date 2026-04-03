@@ -383,17 +383,32 @@ export default function EventDetailPage() {
           <span className="shrink-0 text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
             作成済み
           </span>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="shrink-0 ml-auto text-gray-300 hover:text-red-500 transition p-1"
-            title="削除"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
-          </button>
+          <div className="shrink-0 ml-auto flex items-center gap-1">
+            {!editing && (
+              <button
+                type="button"
+                onClick={startEditing}
+                className="text-gray-300 hover:text-blue-500 transition p-1.5"
+                title="編集"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="text-gray-300 hover:text-red-500 transition p-1.5"
+              title="削除"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 text-sm text-gray-500">
@@ -408,16 +423,7 @@ export default function EventDetailPage() {
         {/* 候補日時 表示 or 編集 */}
         {!editing ? (
           <div className="mt-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-bold text-gray-700">候補日時</h3>
-              <button
-                type="button"
-                onClick={startEditing}
-                className="text-xs text-blue-500 hover:text-blue-700 font-medium transition"
-              >
-                編集
-              </button>
-            </div>
+            <h3 className="text-sm font-bold text-gray-700 mb-2">候補日時</h3>
             <ul className="space-y-1">
               {candidates.map((cd) => (
                 <li key={cd.id} className="text-sm text-gray-600">
