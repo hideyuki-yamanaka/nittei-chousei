@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { isSameDay, format } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -10,17 +10,90 @@ import TimeSlotPicker, { type DateTimeSelection } from "./TimeSlotPicker";
 import { supabase } from "@/lib/supabase";
 import { HOURS } from "@/lib/constants";
 
+const DRAFT_KEY = "event_form_draft";
+
+interface DraftData {
+  title: string;
+  selections: { date: string; hours: number[]; allDay: boolean }[];
+  selectedHours: number[];
+  deadline: string;
+  savedAt: string;
+}
+
 export default function EventForm() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [selections, setSelections] = useState<DateTimeSelection[]>([]);
-  // 右側の時間スロットで選択中の時間（カレンダーで日付を選ぶとこの時間帯が適用される）
   const [selectedHours, setSelectedHours] = useState<number[]>([]);
   const [deadline, setDeadline] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [draftRestored, setDraftRestored] = useState(false);
+  const initialized = useRef(false);
+
+  // 下書き復元
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (!saved) return;
+
+      const draft: DraftData = JSON.parse(saved);
+      if (draft.title || draft.selections.length > 0 || draft.deadline) {
+        setTitle(draft.title);
+        setSelections(
+          draft.selections.map((s) => ({
+            ...s,
+            date: new Date(s.date),
+          }))
+        );
+        setSelectedHours(draft.selectedHours);
+        setDeadline(draft.deadline);
+        setDraftRestored(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 下書き自動保存（500ms debounce）
+  useEffect(() => {
+    if (!initialized.current) return;
+
+    const timer = setTimeout(() => {
+      const draft: DraftData = {
+        title,
+        selections: selections.map((s) => ({
+          date: s.date.toISOString(),
+          hours: s.hours,
+          allDay: s.allDay,
+        })),
+        selectedHours,
+        deadline,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [title, selections, selectedHours, deadline]);
 
   const selectedDates = selections.map((s) => s.date);
+
+  function clearDraft() {
+    localStorage.removeItem(DRAFT_KEY);
+  }
+
+  function handleClearForm() {
+    setTitle("");
+    setSelections([]);
+    setSelectedHours([]);
+    setDeadline("");
+    setDraftRestored(false);
+    clearDraft();
+  }
 
   function handleToggleDate(date: Date) {
     setSelections((prev) => {
@@ -28,7 +101,6 @@ export default function EventForm() {
       if (exists) {
         return prev.filter((s) => !isSameDay(s.date, date));
       }
-      // 新しい日付を追加。現在選択中の時間帯を適用
       const allDay = selectedHours.length === 0;
       const newSel: DateTimeSelection = {
         date,
@@ -43,7 +115,6 @@ export default function EventForm() {
 
   function handleRangeDates(dates: Date[]) {
     setSelections((prev) => {
-      // ドラッグで選択された日付を追加（既に選択済みの日は維持）
       const newSelections = [...prev];
       for (const date of dates) {
         const exists = newSelections.find((s) => isSameDay(s.date, date));
@@ -67,7 +138,6 @@ export default function EventForm() {
       const next = prev.includes(hour)
         ? prev.filter((h) => h !== hour)
         : [...prev, hour].sort((a, b) => a - b);
-      // 既に選択済みの日付にも反映
       updateAllSelections(next);
       return next;
     });
@@ -170,6 +240,9 @@ export default function EventForm() {
       stored.push(eventId);
       localStorage.setItem("my_created_events", JSON.stringify(stored));
 
+      // 下書きを削除
+      clearDraft();
+
       router.push(`/events/${eventId}`);
     } catch (err) {
       console.error(err);
@@ -180,6 +253,22 @@ export default function EventForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* 下書き復元通知 */}
+      {draftRestored && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 flex items-center justify-between">
+          <p className="text-yellow-700 text-sm font-medium">
+            前回の下書きを復元しました
+          </p>
+          <button
+            type="button"
+            onClick={handleClearForm}
+            className="text-yellow-600 text-xs font-bold hover:text-yellow-800 transition"
+          >
+            クリア
+          </button>
+        </div>
+      )}
+
       {/* イベント名 */}
       <div>
         <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -194,7 +283,7 @@ export default function EventForm() {
         />
       </div>
 
-      {/* カレンダー + 時間選択（固定カラム横並び） */}
+      {/* カレンダー + 時間選択 */}
       <div>
         <label className="block text-sm font-bold text-gray-700 mb-2">
           候補日時を選択
@@ -203,7 +292,6 @@ export default function EventForm() {
           右の時間帯を選んでから、カレンダーで日付をタップ（ドラッグで範囲選択も可）
         </p>
         <div className="flex gap-4 items-start">
-          {/* カレンダー */}
           <div className="flex-1">
             <Calendar
               selectedDates={selectedDates}
@@ -212,7 +300,6 @@ export default function EventForm() {
             />
           </div>
 
-          {/* 時間スロット（常に表示） */}
           <TimeSlotPicker
             selectedHours={selectedHours}
             onToggleHour={handleToggleHour}
