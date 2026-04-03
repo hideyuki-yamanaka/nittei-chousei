@@ -84,13 +84,14 @@ export default function EventForm() {
     updateAllSelections([]);
   }
 
-  function handleRangeSelect(startHour: number, endHour: number) {
-    const rangeHours: number[] = [];
-    for (let h = startHour; h <= endHour; h++) {
-      rangeHours.push(h);
-    }
-    setSelectedHours(rangeHours);
-    updateAllSelections(rangeHours);
+  function handleAddRange(hours: number[]) {
+    setSelectedHours((prev) => {
+      const merged = Array.from(new Set([...prev, ...hours])).sort(
+        (a, b) => a - b
+      );
+      updateAllSelections(merged);
+      return merged;
+    });
   }
 
   function updateAllSelections(hours: number[]) {
@@ -210,7 +211,7 @@ export default function EventForm() {
             onToggleHour={handleToggleHour}
             onSelectAll={handleSelectAll}
             onDeselectAll={handleDeselectAll}
-            onRangeSelect={handleRangeSelect}
+            onAddRange={handleAddRange}
           />
         </div>
 

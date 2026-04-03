@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState } from "react";
 import { HOURS, HOUR_LABELS } from "@/lib/constants";
 
 export interface DateTimeSelection {
@@ -14,7 +14,7 @@ interface TimeSlotPickerProps {
   onToggleHour: (hour: number) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
-  onRangeSelect: (startHour: number, endHour: number) => void;
+  onAddRange: (hours: number[]) => void;
 }
 
 export default function TimeSlotPicker({
@@ -22,56 +22,79 @@ export default function TimeSlotPicker({
   onToggleHour,
   onSelectAll,
   onDeselectAll,
-  onRangeSelect,
+  onAddRange,
 }: TimeSlotPickerProps) {
   const allSelected = HOURS.length === selectedHours.length;
   const dragStartHour = useRef<number | null>(null);
-  const isDragging = useRef(false);
+  const hasMoved = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const handlePointerDown = useCallback(
-    (hour: number, e: React.PointerEvent) => {
-      e.preventDefault();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      isDragging.current = true;
-      dragStartHour.current = hour;
-    },
-    []
+  const [previewRange, setPreviewRange] = useState<[number, number] | null>(
+    null
   );
 
   const getHourFromPoint = useCallback((clientY: number): number | null => {
     if (!containerRef.current) return null;
-    const buttons = containerRef.current.querySelectorAll("[data-hour]");
-    for (const btn of buttons) {
-      const rect = btn.getBoundingClientRect();
+    const items = containerRef.current.querySelectorAll("[data-hour]");
+    for (const item of items) {
+      const rect = item.getBoundingClientRect();
       if (clientY >= rect.top && clientY <= rect.bottom) {
-        return Number(btn.getAttribute("data-hour"));
+        return Number(item.getAttribute("data-hour"));
       }
     }
     return null;
   }, []);
 
+  const handlePointerDown = useCallback(
+    (hour: number, e: React.PointerEvent) => {
+      e.preventDefault();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      dragStartHour.current = hour;
+      hasMoved.current = false;
+    },
+    []
+  );
+
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!isDragging.current || dragStartHour.current === null) return;
+      if (dragStartHour.current === null) return;
       const currentHour = getHourFromPoint(e.clientY);
       if (currentHour === null) return;
-
-      const start = Math.min(dragStartHour.current, currentHour);
-      const end = Math.max(dragStartHour.current, currentHour);
-      onRangeSelect(start, end);
+      if (currentHour !== dragStartHour.current) {
+        hasMoved.current = true;
+      }
+      if (hasMoved.current) {
+        const start = Math.min(dragStartHour.current, currentHour);
+        const end = Math.max(dragStartHour.current, currentHour);
+        setPreviewRange([start, end]);
+      }
     },
-    [getHourFromPoint, onRangeSelect]
+    [getHourFromPoint]
   );
 
   const handlePointerUp = useCallback(() => {
-    if (isDragging.current && dragStartHour.current !== null) {
-      // 動かさずに離した場合（タップ/クリック）は単一トグル
-      // onRangeSelectが呼ばれなかった場合のフォールバック
+    if (dragStartHour.current === null) return;
+
+    if (hasMoved.current && previewRange) {
+      // ドラッグ → 範囲を既存の選択に追加
+      const rangHours: number[] = [];
+      for (let h = previewRange[0]; h <= previewRange[1]; h++) {
+        rangHours.push(h);
+      }
+      onAddRange(rangHours);
+    } else {
+      // クリック → 1つだけトグル
+      onToggleHour(dragStartHour.current);
     }
-    isDragging.current = false;
+
     dragStartHour.current = null;
-  }, []);
+    hasMoved.current = false;
+    setPreviewRange(null);
+  }, [previewRange, onAddRange, onToggleHour]);
+
+  const isInPreview = (hour: number) => {
+    if (!previewRange) return false;
+    return hour >= previewRange[0] && hour <= previewRange[1];
+  };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 w-[180px] shrink-0">
@@ -93,7 +116,7 @@ export default function TimeSlotPicker({
       </button>
 
       <p className="text-[10px] text-gray-400 mb-2 leading-tight">
-        ドラッグで範囲選択できます
+        ドラッグで範囲追加できます
       </p>
 
       <div
@@ -101,23 +124,22 @@ export default function TimeSlotPicker({
         className="flex flex-col gap-1 max-h-[420px] overflow-y-auto pr-1 select-none"
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
       >
         {HOURS.map((hour) => {
           const selected = selectedHours.includes(hour);
+          const previewing = isInPreview(hour);
           return (
             <div
               key={hour}
               data-hour={hour}
               onPointerDown={(e) => handlePointerDown(hour, e)}
-              onClick={() => {
-                if (!isDragging.current) {
-                  onToggleHour(hour);
-                }
-              }}
               className={`
                 w-full px-3 py-2 rounded-lg text-sm font-medium transition border text-center cursor-pointer touch-none
                 ${
-                  selected
+                  previewing
+                    ? "bg-blue-400 text-white border-blue-400"
+                    : selected
                     ? "bg-blue-600 text-white border-blue-600"
                     : "bg-white text-gray-700 border-gray-200 hover:border-blue-400 hover:text-blue-600"
                 }
