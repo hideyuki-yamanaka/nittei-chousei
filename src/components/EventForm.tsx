@@ -41,6 +41,27 @@ export default function EventForm() {
     });
   }
 
+  function handleRangeDates(dates: Date[]) {
+    setSelections((prev) => {
+      // ドラッグで選択された日付を追加（既に選択済みの日は維持）
+      const newSelections = [...prev];
+      for (const date of dates) {
+        const exists = newSelections.find((s) => isSameDay(s.date, date));
+        if (!exists) {
+          const allDay = selectedHours.length === 0;
+          newSelections.push({
+            date,
+            hours: [...selectedHours],
+            allDay,
+          });
+        }
+      }
+      return newSelections.sort(
+        (a, b) => a.date.getTime() - b.date.getTime()
+      );
+    });
+  }
+
   function handleToggleHour(hour: number) {
     setSelectedHours((prev) => {
       const next = prev.includes(hour)
@@ -171,7 +192,7 @@ export default function EventForm() {
           候補日時を選択
         </label>
         <p className="text-xs text-gray-500 mb-3">
-          右の時間帯を選んでから、カレンダーで日付をタップしてください
+          右の時間帯を選んでから、カレンダーで日付をタップ（ドラッグで範囲選択も可）
         </p>
         <div className="flex gap-4 items-start">
           {/* カレンダー */}
@@ -179,6 +200,7 @@ export default function EventForm() {
             <Calendar
               selectedDates={selectedDates}
               onToggleDate={handleToggleDate}
+              onRangeDates={handleRangeDates}
             />
           </div>
 
