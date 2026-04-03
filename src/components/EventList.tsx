@@ -62,7 +62,12 @@ export default function EventList() {
   useEffect(() => {
     const stored = JSON.parse(
       localStorage.getItem("my_created_events") || "[]"
-    );
+    ) as string[];
+    // サンプルイベントが未登録なら追加
+    if (!stored.includes("sample5gatsu")) {
+      stored.push("sample5gatsu");
+      localStorage.setItem("my_created_events", JSON.stringify(stored));
+    }
     setMyEventIds(stored);
     setShowSamples(stored.length === 0);
   }, []);
