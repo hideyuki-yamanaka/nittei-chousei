@@ -1,0 +1,14 @@
+{
+  "name": "日程調整ツール",
+  "short_name": "日程調整",
+  "description": "かんたん日程調整アプリ。カレンダーから候補日を選んで、リンクを共有するだけ。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#4338ca",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
