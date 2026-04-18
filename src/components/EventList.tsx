@@ -50,70 +50,115 @@ interface EventWithCount extends Event {
   respondentCount?: number;
 }
 
+const CACHE_KEY = "event_list_cache_v1";
+
+type CachedSnapshot = {
+  active: EventWithCount[];
+  trash: EventWithCount[];
+  counts: Record<string, number>;
+};
+
+function readInitialIds(): string[] {
+  if (typeof window === "undefined") return [];
+  const stored = JSON.parse(
+    localStorage.getItem("my_created_events") || "[]"
+  ) as string[];
+  if (!stored.includes("sample5gatsu")) {
+    stored.push("sample5gatsu");
+    localStorage.setItem("my_created_events", JSON.stringify(stored));
+  }
+  return stored;
+}
+
+function readCache(): CachedSnapshot | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as CachedSnapshot;
+  } catch {
+    return null;
+  }
+}
+
 export default function EventList() {
   const router = useRouter();
-  const [events, setEvents] = useState<EventWithCount[]>([]);
+  const [myEventIds, setMyEventIds] = useState<string[]>(() => readInitialIds());
+  const [cache] = useState<CachedSnapshot | null>(() => readCache());
+  const [tab, setTab] = useState<Tab>("active");
+  const [events, setEvents] = useState<EventWithCount[]>(
+    () => cache?.active ?? []
+  );
+  const [trashEvents, setTrashEvents] = useState<EventWithCount[]>(
+    () => cache?.trash ?? []
+  );
   const [respondentCounts, setRespondentCounts] = useState<
     Record<string, number>
-  >({});
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("active");
-  const [myEventIds, setMyEventIds] = useState<string[]>([]);
-  const [showSamples, setShowSamples] = useState(false);
-
-  useEffect(() => {
-    const stored = JSON.parse(
-      localStorage.getItem("my_created_events") || "[]"
-    ) as string[];
-    // サンプルイベントが未登録なら追加
-    if (!stored.includes("sample5gatsu")) {
-      stored.push("sample5gatsu");
-      localStorage.setItem("my_created_events", JSON.stringify(stored));
-    }
-    setMyEventIds(stored);
-    setShowSamples(stored.length === 0);
-  }, []);
+  >(() => cache?.counts ?? {});
+  // キャッシュがあれば最初からコンテンツを出す。なければローディング表示。
+  const [loading, setLoading] = useState(
+    () => myEventIds.length > 0 && !cache
+  );
+  const [showSamples, setShowSamples] = useState(
+    () => myEventIds.length === 0
+  );
 
   const loadEvents = useCallback(async () => {
     if (myEventIds.length === 0) {
       setEvents([]);
+      setTrashEvents([]);
       setLoading(false);
       return;
     }
 
-    const query = supabase
+    // active / trash を同時取得
+    const activePromise = supabase
       .from("events")
       .select("*")
       .in("id", myEventIds)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
-    if (tab === "active") {
-      query.is("deleted_at", null);
-    } else {
-      query.not("deleted_at", "is", null);
-    }
+    const trashPromise = supabase
+      .from("events")
+      .select("*")
+      .in("id", myEventIds)
+      .not("deleted_at", "is", null)
+      .order("created_at", { ascending: false });
 
-    const { data } = await query;
-    setEvents(data || []);
+    const respondentsPromise = supabase
+      .from("respondents")
+      .select("event_id")
+      .in("event_id", myEventIds);
 
-    // 回答者数を取得
-    if (data && data.length > 0) {
-      const ids = data.map((e) => e.id);
-      const { data: respondents } = await supabase
-        .from("respondents")
-        .select("event_id")
-        .in("event_id", ids);
-      if (respondents) {
-        const counts: Record<string, number> = {};
-        for (const r of respondents) {
-          counts[r.event_id] = (counts[r.event_id] || 0) + 1;
-        }
-        setRespondentCounts(counts);
+    const [{ data: active }, { data: trash }, { data: respondents }] =
+      await Promise.all([activePromise, trashPromise, respondentsPromise]);
+
+    const counts: Record<string, number> = {};
+    if (respondents) {
+      for (const r of respondents) {
+        counts[r.event_id] = (counts[r.event_id] || 0) + 1;
       }
     }
 
+    setEvents(active || []);
+    setTrashEvents(trash || []);
+    setRespondentCounts(counts);
     setLoading(false);
-  }, [myEventIds, tab]);
+
+    try {
+      localStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify({
+          active: active || [],
+          trash: trash || [],
+          counts,
+        })
+      );
+    } catch {
+      // quota 超過などは無視
+    }
+  }, [myEventIds]);
 
   useEffect(() => {
     if (myEventIds.length > 0) {
@@ -124,6 +169,8 @@ export default function EventList() {
   }, [myEventIds, loadEvents]);
 
   async function handleDelete(eventId: string) {
+    // 楽観的UI更新
+    setEvents((prev) => prev.filter((e) => e.id !== eventId));
     await supabase
       .from("events")
       .update({ deleted_at: new Date().toISOString() })
@@ -132,6 +179,7 @@ export default function EventList() {
   }
 
   async function handleRestore(eventId: string) {
+    setTrashEvents((prev) => prev.filter((e) => e.id !== eventId));
     await supabase
       .from("events")
       .update({ deleted_at: null })
@@ -176,6 +224,7 @@ export default function EventList() {
   }
 
   async function handlePermanentDelete(eventId: string) {
+    setTrashEvents((prev) => prev.filter((e) => e.id !== eventId));
     await supabase.from("events").delete().eq("id", eventId);
     const stored = JSON.parse(
       localStorage.getItem("my_created_events") || "[]"
@@ -186,9 +235,18 @@ export default function EventList() {
   }
 
   if (loading) {
+    // キャッシュが無いときだけのスケルトン表示
     return (
-      <div className="text-gray-500 text-sm py-8 text-center">
-        読み込み中...
+      <div className="space-y-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse"
+          >
+            <div className="h-5 bg-gray-100 rounded w-2/3 mb-3" />
+            <div className="h-4 bg-gray-100 rounded w-1/3" />
+          </div>
+        ))}
       </div>
     );
   }
@@ -248,7 +306,9 @@ export default function EventList() {
         </button>
       </div>
 
-      {events.length === 0 ? (
+      {(() => {
+        const visible = tab === "active" ? events : trashEvents;
+        return visible.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-400 text-sm">
             {tab === "active"
@@ -266,7 +326,7 @@ export default function EventList() {
         </div>
       ) : (
         <div className="space-y-3">
-          {events.map((event) => (
+          {visible.map((event) => (
             <EventCard
               key={event.id}
               event={event}
@@ -277,16 +337,18 @@ export default function EventList() {
               onDuplicate={() => handleDuplicate(event)}
               onPermanentDelete={() => handlePermanentDelete(event.id)}
               onTitleUpdate={(newTitle) => {
-                setEvents((prev) =>
+                const updater = (prev: EventWithCount[]) =>
                   prev.map((e) =>
                     e.id === event.id ? { ...e, title: newTitle } : e
-                  )
-                );
+                  );
+                setEvents(updater);
+                setTrashEvents(updater);
               }}
             />
           ))}
         </div>
-      )}
+      );
+      })()}
     </div>
   );
 }

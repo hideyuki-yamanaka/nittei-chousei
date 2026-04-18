@@ -6,7 +6,7 @@
       "runtimeExecutable": "/Users/hideyuki/.local/node-v20.18.0-darwin-arm64/bin/node",
       "runtimeArgs": ["node_modules/.bin/next", "dev"],
       "port": 3000,
-      "cwd": "/Users/hideyuki/Library/CloudStorage/Dropbox/Work/x_others/#practice/Cursor/nittei-chousei"
+      "cwd": "/Users/hideyuki/Library/CloudStorage/Dropbox/Work/x_others/#practice/Claude Code/nittei-chousei"
     }
   ]
 }
