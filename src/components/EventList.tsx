@@ -83,25 +83,37 @@ function readCache(): CachedSnapshot | null {
 
 export default function EventList() {
   const router = useRouter();
-  const [myEventIds, setMyEventIds] = useState<string[]>(() => readInitialIds());
-  const [cache] = useState<CachedSnapshot | null>(() => readCache());
+  // mounted フラグで SSR とクライアント初回レンダリングを一致させる
+  // （Vercel は SSR なので localStorage の有無で表示が変わるとハイドレーション不整合になる）
+  const [mounted, setMounted] = useState(false);
+  const [myEventIds, setMyEventIds] = useState<string[]>([]);
   const [tab, setTab] = useState<Tab>("active");
-  const [events, setEvents] = useState<EventWithCount[]>(
-    () => cache?.active ?? []
-  );
-  const [trashEvents, setTrashEvents] = useState<EventWithCount[]>(
-    () => cache?.trash ?? []
-  );
+  const [events, setEvents] = useState<EventWithCount[]>([]);
+  const [trashEvents, setTrashEvents] = useState<EventWithCount[]>([]);
   const [respondentCounts, setRespondentCounts] = useState<
     Record<string, number>
-  >(() => cache?.counts ?? {});
-  // キャッシュがあれば最初からコンテンツを出す。なければローディング表示。
-  const [loading, setLoading] = useState(
-    () => myEventIds.length > 0 && !cache
-  );
-  const [showSamples, setShowSamples] = useState(
-    () => myEventIds.length === 0
-  );
+  >({});
+  const [loading, setLoading] = useState(true);
+  const [showSamples, setShowSamples] = useState(false);
+
+  // マウント時に同期で localStorage を読み取り、キャッシュがあれば即座に表示
+  useEffect(() => {
+    const ids = readInitialIds();
+    const cache = readCache();
+    setMyEventIds(ids);
+    if (cache) {
+      // キャッシュヒット: スケルトンを飛ばして即内容を表示（裏で最新取得）
+      setEvents(cache.active);
+      setTrashEvents(cache.trash);
+      setRespondentCounts(cache.counts);
+      setLoading(false);
+    }
+    if (ids.length === 0) {
+      setShowSamples(true);
+      setLoading(false);
+    }
+    setMounted(true);
+  }, []);
 
   const loadEvents = useCallback(async () => {
     if (myEventIds.length === 0) {

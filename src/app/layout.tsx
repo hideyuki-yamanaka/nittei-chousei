@@ -15,14 +15,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "日程調整ツール",
   description: "かんたん日程調整アプリ。カレンダーから候補日を選んで、リンクを共有するだけ。",
-  manifest: "/nittei-chousei/manifest.json",
+  manifest: "/manifest.json",
   themeColor: "#4338ca",
   icons: {
     icon: [
-      { url: "/nittei-chousei/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/nittei-chousei/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: "/nittei-chousei/apple-touch-icon.png",
+    apple: { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
   },
 };
 
