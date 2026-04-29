@@ -143,6 +143,30 @@ export default function EventDetailPage() {
     });
   }, [eventId, loadData, searchParams]);
 
+  // ─── iPhone / iPad シームレス同期: Supabase Realtime 購読 ───
+  // events / candidate_dates / respondents / responses のいずれかに変更があれば
+  // debounce 付きで loadData を再実行 → 別端末の編集が即時反映される。
+  // 各テーブルは Supabase 側で Realtime publication に登録されている前提
+  // (sql/2026-04-29-realtime.sql で ALTER PUBLICATION 済)。
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefetch = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { loadData(); }, 500);
+    };
+    const channel = supabase
+      .channel(`nittei-realtime-${eventId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "events", filter: `id=eq.${eventId}` }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "candidate_dates", filter: `event_id=eq.${eventId}` }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "respondents", filter: `event_id=eq.${eventId}` }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "responses" }, scheduleRefetch)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [eventId, loadData]);
+
   // 編集モードに入るとき、現在のデータを編集用stateにセット
   function startEditing() {
     // 候補日時からDateTimeSelection[]を構築
