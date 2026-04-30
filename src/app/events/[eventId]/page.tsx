@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { isSameDay, format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { nanoid } from "nanoid";
 import { supabase } from "@/lib/supabase";
 import { formatDateWithHour, formatDeadline, isDeadlinePassed } from "@/lib/date-utils";
@@ -13,6 +12,7 @@ import { HOURS } from "@/lib/constants";
 import InlineTitle from "@/components/InlineTitle";
 import Calendar from "@/components/Calendar";
 import TimeSlotPicker from "@/components/TimeSlotPicker";
+import DateSummaryEditor from "@/components/DateSummaryEditor";
 import ConfirmModal from "@/components/ConfirmModal";
 import type { DateTimeSelection } from "@/components/TimeSlotPicker";
 import type { Event, CandidateDate, Respondent, Response, Availability } from "@/lib/types";
@@ -503,7 +503,15 @@ export default function EventDetailPage() {
         {/* 候補日時 表示 or 編集 */}
         {!editing ? (
           <div className="mt-3">
-            <h3 className="text-sm font-bold text-gray-700 mb-2">候補日時</h3>
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 className="text-sm font-bold text-gray-700">候補日時</h3>
+              <a
+                href="/design-preview"
+                className="text-xs text-blue-600 hover:text-blue-700 transition"
+              >
+                デザイン案を見る →
+              </a>
+            </div>
             <ul className="space-y-1">
               {candidates.map((cd) => (
                 <li key={cd.id} className="text-sm text-gray-600">
@@ -546,40 +554,11 @@ export default function EventDetailPage() {
               )}
             </div>
 
-            {/* 選択済みサマリー */}
-            {editSelections.length > 0 && (
-              <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
-                <h3 className="text-sm font-bold text-gray-700 mb-2">
-                  選択した候補日時
-                </h3>
-                <div className="space-y-1">
-                  {editSelections.map((sel) => (
-                    <div
-                      key={sel.date.toISOString()}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <div className="text-gray-900">
-                        <span className="font-medium">
-                          {format(sel.date, "M/d（E）", { locale: ja })}
-                        </span>
-                        <span className="text-gray-500 ml-2">
-                          {sel.allDay || sel.hours.length === 0
-                            ? "終日"
-                            : sel.hours.map((h) => `${h}:00`).join(", ")}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleDate(sel.date)}
-                        className="text-gray-400 hover:text-red-500 text-xs transition"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* 選択済みサマリー（日付ごとに時間を個別編集できる） */}
+            <DateSummaryEditor
+              selections={editSelections}
+              onUpdate={(next) => setEditSelections(next)}
+            />
 
             {/* 回答期限 */}
             <div>
