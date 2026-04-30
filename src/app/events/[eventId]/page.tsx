@@ -13,6 +13,7 @@ import InlineTitle from "@/components/InlineTitle";
 import Calendar from "@/components/Calendar";
 import TimeSlotPicker from "@/components/TimeSlotPicker";
 import DateSummaryEditor from "@/components/DateSummaryEditor";
+import CandidateList from "@/components/CandidateList";
 import ConfirmModal from "@/components/ConfirmModal";
 import type { DateTimeSelection } from "@/components/TimeSlotPicker";
 import type { Event, CandidateDate, Respondent, Response, Availability } from "@/lib/types";
@@ -503,22 +504,8 @@ export default function EventDetailPage() {
         {/* 候補日時 表示 or 編集 */}
         {!editing ? (
           <div className="mt-3">
-            <div className="flex items-baseline justify-between mb-2">
-              <h3 className="text-sm font-bold text-gray-700">候補日時</h3>
-              <a
-                href="/design-preview"
-                className="text-xs text-blue-600 hover:text-blue-700 transition"
-              >
-                デザイン案を見る →
-              </a>
-            </div>
-            <ul className="space-y-1">
-              {candidates.map((cd) => (
-                <li key={cd.id} className="text-sm text-gray-600">
-                  {formatDateWithHour(cd.date, cd.start_hour)}
-                </li>
-              ))}
-            </ul>
+            <h3 className="text-sm font-bold text-gray-700 mb-2">候補日時</h3>
+            <CandidateList candidates={candidates} />
           </div>
         ) : (
           <div className="mt-4 space-y-4">
