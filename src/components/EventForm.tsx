@@ -133,44 +133,27 @@ export default function EventForm() {
     });
   }
 
+  // ─── 時間ピッカー（新規日付の初期値）───
+  // 既存の日付には影響させず、日付ごとの編集は DateSummaryEditor で行う。
   function handleToggleHour(hour: number) {
-    setSelectedHours((prev) => {
-      const next = prev.includes(hour)
+    setSelectedHours((prev) =>
+      prev.includes(hour)
         ? prev.filter((h) => h !== hour)
-        : [...prev, hour].sort((a, b) => a - b);
-      updateAllSelections(next);
-      return next;
-    });
+        : [...prev, hour].sort((a, b) => a - b)
+    );
   }
 
   function handleSelectAll() {
-    const allHours = [...HOURS] as number[];
-    setSelectedHours(allHours);
-    updateAllSelections(allHours);
+    setSelectedHours([...HOURS] as number[]);
   }
 
   function handleDeselectAll() {
     setSelectedHours([]);
-    updateAllSelections([]);
   }
 
   function handleAddRange(hours: number[]) {
-    setSelectedHours((prev) => {
-      const merged = Array.from(new Set([...prev, ...hours])).sort(
-        (a, b) => a - b
-      );
-      updateAllSelections(merged);
-      return merged;
-    });
-  }
-
-  function updateAllSelections(hours: number[]) {
-    setSelections((prev) =>
-      prev.map((s) => ({
-        ...s,
-        hours: [...hours],
-        allDay: hours.length === 0,
-      }))
+    setSelectedHours((prev) =>
+      Array.from(new Set([...prev, ...hours])).sort((a, b) => a - b)
     );
   }
 

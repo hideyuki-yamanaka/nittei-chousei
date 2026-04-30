@@ -170,26 +170,31 @@ export default function EventDetailPage() {
 
   // 編集モードに入るとき、現在のデータを編集用stateにセット
   function startEditing() {
-    // 候補日時からDateTimeSelection[]を構築
-    const dateMap = new Map<string, number[]>();
+    // 候補日時からDateTimeSelection[]を構築（重複は除去する）
+    const dateMap = new Map<string, Set<number>>();
+    const dateAllDay = new Set<string>();
     const allHoursSet = new Set<number>();
     for (const cd of candidates) {
       const dateStr = cd.date;
       if (!dateMap.has(dateStr)) {
-        dateMap.set(dateStr, []);
+        dateMap.set(dateStr, new Set<number>());
       }
-      if (cd.start_hour !== null) {
-        dateMap.get(dateStr)!.push(cd.start_hour);
+      if (cd.start_hour === null) {
+        dateAllDay.add(dateStr);
+      } else {
+        dateMap.get(dateStr)!.add(cd.start_hour);
         allHoursSet.add(cd.start_hour);
       }
     }
 
     const selections: DateTimeSelection[] = [];
-    for (const [dateStr, hours] of dateMap) {
+    for (const [dateStr, hourSet] of dateMap) {
+      const hours = Array.from(hourSet).sort((a, b) => a - b);
+      // hours があればそちら優先、無ければ allDay 行で 終日扱い
       selections.push({
         date: new Date(dateStr + "T00:00:00"),
-        hours: hours.sort((a, b) => a - b),
-        allDay: hours.length === 0,
+        hours,
+        allDay: hours.length === 0 && dateAllDay.has(dateStr),
       });
     }
     selections.sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -255,44 +260,29 @@ export default function EventDetailPage() {
     });
   }
 
+  // ─── 時間ピッカーの操作 ───
+  // 既存の日付の時間は触らない（per-date の整合性を保つ）。
+  // 「新しく追加する日付の初期値」を決める設定として機能する。
+  // 日付ごとの編集は DateSummaryEditor で行う。
   function handleToggleHour(hour: number) {
-    setEditSelectedHours((prev) => {
-      const next = prev.includes(hour)
+    setEditSelectedHours((prev) =>
+      prev.includes(hour)
         ? prev.filter((h) => h !== hour)
-        : [...prev, hour].sort((a, b) => a - b);
-      updateAllEditSelections(next);
-      return next;
-    });
+        : [...prev, hour].sort((a, b) => a - b)
+    );
   }
 
   function handleSelectAll() {
-    const allHours = [...HOURS] as number[];
-    setEditSelectedHours(allHours);
-    updateAllEditSelections(allHours);
+    setEditSelectedHours([...HOURS] as number[]);
   }
 
   function handleDeselectAll() {
     setEditSelectedHours([]);
-    updateAllEditSelections([]);
   }
 
   function handleAddRange(hours: number[]) {
-    setEditSelectedHours((prev) => {
-      const merged = Array.from(new Set([...prev, ...hours])).sort(
-        (a, b) => a - b
-      );
-      updateAllEditSelections(merged);
-      return merged;
-    });
-  }
-
-  function updateAllEditSelections(hours: number[]) {
-    setEditSelections((prev) =>
-      prev.map((s) => ({
-        ...s,
-        hours: [...hours],
-        allDay: hours.length === 0,
-      }))
+    setEditSelectedHours((prev) =>
+      Array.from(new Set([...prev, ...hours])).sort((a, b) => a - b)
     );
   }
 
@@ -308,10 +298,20 @@ export default function EventDetailPage() {
       .eq("id", eventId);
 
     // 既存の候補日を削除して新しく入れ直す
-    await supabase
+    // ※ Supabase の RLS で candidate_dates の DELETE ポリシーが必要
+    //   未設定だと silent fail して行が累積する → supabase-migration-v3.sql で追加すること
+    const { error: deleteError } = await supabase
       .from("candidate_dates")
       .delete()
       .eq("event_id", eventId);
+    if (deleteError) {
+      console.error("候補日時の削除に失敗", deleteError);
+      alert(
+        "候補日時の削除に失敗しました。Supabase の RLS ポリシーを確認してください（supabase-migration-v3.sql）"
+      );
+      setSaving(false);
+      return;
+    }
 
     let sortOrder = 0;
     const newCandidates: {
@@ -321,9 +321,14 @@ export default function EventDetailPage() {
       sort_order: number;
     }[] = [];
 
+    // 念のため重複を除去（同じ (date, hour) が複数 sel に入っているケースを防ぐ）
+    const seen = new Set<string>();
     for (const sel of editSelections) {
       const dateStr = format(sel.date, "yyyy-MM-dd");
       if (sel.allDay || sel.hours.length === 0) {
+        const key = `${dateStr}|allday`;
+        if (seen.has(key)) continue;
+        seen.add(key);
         newCandidates.push({
           event_id: eventId,
           date: dateStr,
@@ -331,7 +336,12 @@ export default function EventDetailPage() {
           sort_order: sortOrder++,
         });
       } else {
-        for (const hour of sel.hours) {
+        // 同じ日付内の hour も重複除去
+        const uniqueHours = Array.from(new Set(sel.hours)).sort((a, b) => a - b);
+        for (const hour of uniqueHours) {
+          const key = `${dateStr}|${hour}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
           newCandidates.push({
             event_id: eventId,
             date: dateStr,
@@ -501,6 +511,32 @@ export default function EventDetailPage() {
           <span>回答 {respondents.length}名</span>
         </div>
 
+        {/* コンパクトなアクションバー（編集モードでは非表示） */}
+        {!editing && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            {!deadlinePassed && (
+              <a
+                href={`/events/${eventId}/answer`}
+                className="flex-1 min-w-[140px] py-2 px-4 bg-blue-600 text-white text-sm font-bold rounded-lg text-center hover:bg-blue-700 transition"
+              >
+                {myRespondentId ? "回答を修正 →" : "回答する →"}
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="py-2 px-3 bg-white text-gray-700 text-sm font-bold rounded-lg border border-gray-300 hover:bg-gray-50 transition flex items-center gap-1.5 whitespace-nowrap"
+              title={answerUrl}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              {copied ? "コピーした！" : "リンクをコピー"}
+            </button>
+          </div>
+        )}
+
         {/* 候補日時 表示 or 編集 */}
         {!editing ? (
           <div className="mt-3">
@@ -610,50 +646,9 @@ export default function EventDetailPage() {
         )}
       </div>
 
-      {/* 共有リンク */}
+      {/* === 回答結果セクション === */}
       {!editing && (
         <>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h3 className="text-sm font-bold text-gray-700 mb-2">
-              回答用リンク
-            </h3>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={answerUrl}
-                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 truncate"
-              />
-              <button
-                onClick={handleCopy}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition whitespace-nowrap"
-              >
-                {copied ? "コピーした！" : "コピー"}
-              </button>
-            </div>
-          </div>
-
-          {/* アクションボタン */}
-          <div className="flex gap-3">
-            {!deadlinePassed && (
-              <a
-                href={`/events/${eventId}/answer`}
-                className="flex-1 py-3 px-4 bg-blue-600 text-white font-bold rounded-xl text-center hover:bg-blue-700 transition"
-              >
-                {myRespondentId ? "回答を修正" : "回答する"}
-              </a>
-            )}
-            {myRespondentId && !deadlinePassed && (
-              <a
-                href={`/events/${eventId}/answer/${myRespondentId}`}
-                className="flex-1 py-3 px-4 bg-white text-gray-700 font-bold rounded-xl text-center border border-gray-300 hover:bg-gray-50 transition"
-              >
-                回答を修正
-              </a>
-            )}
-          </div>
-
-          {/* === 回答結果セクション === */}
           {respondents.length > 0 && (
             <>
               <hr className="border-gray-200" />
